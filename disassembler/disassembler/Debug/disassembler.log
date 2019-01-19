@@ -1,0 +1,3 @@
+﻿  disassembler.cpp
+c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(149): warning C4018: '<': signed/unsigned mismatch
+  disassembler.vcxproj -> C:\Users\shree\Documents\cs313\disassembler\Debug\disassembler.exe
