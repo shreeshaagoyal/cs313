@@ -25,7 +25,7 @@ void disassemble(FILE *machineCode, FILE *outputFile, unsigned long fileLength);
 int printInstruction(FILE *machineCode, FILE *outputFile);
 void halt(unsigned char c, int *res, FILE *out);
 void nop(unsigned char c, int *res, FILE *out);
-void movq(unsigned char c, int *res, FILE *out);
+void movq(unsigned char c, int *res, FILE *out, FILE *machineCode);
 void irmovq(unsigned char c, int *res, FILE *out);
 void rmmovq(unsigned char c, int *res, FILE *out);
 void mrmovq(unsigned char c, int *res, FILE *out);
@@ -35,6 +35,7 @@ void call(unsigned char c, int *res, FILE *out);
 void ret(unsigned char c, int *res, FILE *out);
 void pushq(unsigned char c, int *res, FILE *out);
 void popq(unsigned char c, int *res, FILE *out);
+void condition(unsigned char c, int *res, FILE *out);
 
 int main()
 {
@@ -94,6 +95,9 @@ int main()
 	disassemble(machineCode, outputFile, fileLength);
 
 	fclose(machineCode);
+
+	system("pause");
+
 	return SUCCESS;
 }
 
@@ -154,51 +158,51 @@ void disassemble(FILE *machineCode, FILE *outputFile, unsigned long fileLength)
 
 int printInstruction(FILE *machineCode, FILE *out)
 {
-	int res = 0;
+	int res = 1;
 	unsigned char c = fgetc(machineCode);
 
 	if (!feof(machineCode))
 	{
 		switch (c >> 4)
 		{
-		case 0x0:
-			halt(c, &res, out);
-			break;
-		case 0x1:
-			nop(c, &res, out);
-			break;
-		case 0x2:
-			movq(c, &res, out);
-			break;
-		case 0x3:
-			irmovq(c, &res, out);
-			break;
-		case 0x4:
-			rmmovq(c, &res, out);
-			break;
-		case 0x5:
-			mrmovq(c, &res, out);
-			break;
-		case 0x6:
-			OPq(c, &res, out);
-			break;
-		case 0x7:
-			jXX(c, &res, out);
-			break;
-		case 0x8:
-			call(c, &res, out);
-			break;
-		case 0x9:
-			ret(c, &res, out);
-			break;
-		case 0xA:
-			pushq(c, &res, out);
-			break;
-		case 0xB:
-			popq(c, &res, out);
-			break;
-		default:
-			res = -1;
+			case 0x0:
+				halt(c, &res, out);
+				break;
+			case 0x1:
+				nop(c, &res, out);
+				break;
+			case 0x2:
+				movq(c, &res, out, machineCode);
+				break;
+			case 0x3:
+				irmovq(c, &res, out);
+				break;
+			case 0x4:
+				rmmovq(c, &res, out);
+				break;
+			case 0x5:
+				mrmovq(c, &res, out);
+				break;
+			case 0x6:
+				OPq(c, &res, out);
+				break;
+			case 0x7:
+				jXX(c, &res, out);
+				break;
+			case 0x8:
+				call(c, &res, out);
+				break;
+			case 0x9:
+				ret(c, &res, out);
+				break;
+			case 0xA:
+				pushq(c, &res, out);
+				break;
+			case 0xB:
+				popq(c, &res, out);
+				break;
+			default:
+				res = -1;
 		}
 	}
 
@@ -208,60 +212,141 @@ int printInstruction(FILE *machineCode, FILE *out)
 // INSTRUCTION FUNCTIONS. MAKE THESE PRIVATE
 void halt(unsigned char c, int *res, FILE *out)
 {
+	*res = !(c % 10) ? 1 : -1;
 	fprintf(out, "halt\n");
 }
 
 void nop(unsigned char c, int *res, FILE *out)
 {
+	*res = !(c % 10) ? 1 : -1;
 	fprintf(out, "nop\n");
 }
 
-void movq(unsigned char c, int *res, FILE *out)
+void movq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
-	fprintf(out, "movq\n");
+	if (!(c % 10))
+	{
+		fprintf(out, "rrmovq\n");
+	}
+	else if ((0 > (c % 10)) && ((c % 10) <= 6))
+	{
+		fprintf(out, "cmov");
+		condition(c, res, out);
+	}
+
+	unsigned char registers = fgetc(machineCode);
+	unsigned char firstRegister = registers >> 4;
+	unsigned char secondRegister = registers % 10;
+
+	if ((0 >= firstRegister) && (firstRegister <= 0xE))
+	{
+		printRegister(firstRegister, out);
+	}
 }
 
 void irmovq(unsigned char c, int *res, FILE *out)
 {
+	*res = !(c % 10) ? 1 : -1;
 	fprintf(out, "irmovq\n");
 }
 
 void rmmovq(unsigned char c, int *res, FILE *out)
 {
+	*res = !(c % 10) ? 1 : -1;
 	fprintf(out, "rmmovq\n");
 }
 
 void mrmovq(unsigned char c, int *res, FILE *out)
 {
+	*res = !(c % 10) ? 1 : -1;
 	fprintf(out, "mrmovq\n");
 }
 
 void OPq(unsigned char c, int *res, FILE *out)
 {
-	fprintf(out, "OPq\n");
+	switch (c % 10)
+	{
+		case 0:
+			fprintf(out, "addq\n");
+			break;
+		case 1:
+			fprintf(out, "subq\n");
+			break;
+		case 2:
+			fprintf(out, "andq\n");
+			break;
+		case 3:
+			fprintf(out, "xorq\n");
+			break;
+		case 4:
+			fprintf(out, "mulq\n");
+			break;
+		case 5:
+			fprintf(out, "divq\n");
+			break;
+		case 6:
+			fprintf(out, "modq\n");
+			break;
+		default:
+			*res = -1;
+	}
 }
 
 void jXX(unsigned char c, int *res, FILE *out)
 {
-	fprintf(out, "jXX\n");
+	fprintf(out, "j");
+	condition(c, res, out);
 }
 
 void call(unsigned char c, int *res, FILE *out)
 {
+	*res = !(c % 10) ? 1 : -1;
 	fprintf(out, "call\n");
 }
 
 void ret(unsigned char c, int *res, FILE *out)
 {
+	*res = !(c % 10) ? 1 : -1;
 	fprintf(out, "ret\n");
 }
 
 void pushq(unsigned char c, int *res, FILE *out)
 {
+	*res = !(c % 10) ? 1 : -1;
 	fprintf(out, "pushq\n");
 }
 
 void popq(unsigned char c, int *res, FILE *out)
 {
+	*res = !(c % 10) ? 1 : -1;
 	fprintf(out, "popq\n");
+}
+
+void condition(unsigned char c, int *res, FILE *out)
+{
+	unsigned char ifun = c % 10;
+	*res = ((0 <= ifun) && (ifun <= 6)) ? 1 : -1;
+	switch (ifun)
+	{
+		case 1:
+			fprintf(out, "le\n");
+			break;
+		case 2:
+			fprintf(out, "l\n");
+			break;
+		case 3:
+			fprintf(out, "e\n");
+			break;
+		case 4:
+			fprintf(out, "ne\n");
+			break;
+		case 5:
+			fprintf(out, "ge\n");
+			break;
+		case 6:
+			fprintf(out, "g\n");
+			break;
+		default:
+			*res = -1;
+	}
 }
