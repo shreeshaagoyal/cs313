@@ -354,7 +354,10 @@ void jXX(unsigned char c, int *res, FILE *out)
 void call(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
 	*res = !(c % 0x10) ? 1 : -1;
-	fprintf(out, "call %llu\n", destAddr(machineCode));
+	if (*res > 0)
+	{
+		fprintf(out, "call %llu\n", destAddr(machineCode));
+	}
 }
 
 void ret(unsigned char c, int *res, FILE *out)
