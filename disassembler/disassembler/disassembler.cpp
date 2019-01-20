@@ -33,8 +33,8 @@ void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode);
 void jXX(unsigned char c, int *es, FILE *out);
 void call(unsigned char c, int *res, FILE *out);
 void ret(unsigned char c, int *res, FILE *out);
-void pushq(unsigned char c, int *res, FILE *out);
-void popq(unsigned char c, int *res, FILE *out);
+void pushq(unsigned char c, int *res, FILE *out, FILE *machineCode);
+void popq(unsigned char c, int *res, FILE *out, FILE *machineCode);
 const char* condition(unsigned char ifun);
 const char* reg(unsigned char reg);
 
@@ -43,7 +43,7 @@ int main()
 	FILE *machineCode, *outputFile;
 
 	unsigned int argc = 3;
-	const char *InputFilename = "cmovge-subq.mem";
+	const char *InputFilename = "cmovge-subq-pushq-popq.mem";
 	const char *OutFilename = "";
 	
 	unsigned long startingOffset = 0;
@@ -197,10 +197,10 @@ int printInstruction(FILE *machineCode, FILE *out)
 				ret(c, &res, out);
 				break;
 			case 0xA:
-				pushq(c, &res, out);
+				pushq(c, &res, out, machineCode);
 				break;
 			case 0xB:
-				popq(c, &res, out);
+				popq(c, &res, out, machineCode);
 				break;
 			default:
 				res = -1;
@@ -227,8 +227,7 @@ void movq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
 	unsigned char ifun = c % 16;
 	unsigned char registers = fgetc(machineCode);
-	unsigned char firstRegister;
-	unsigned char secondRegister;
+	unsigned char firstRegister, secondRegister;
 
 	// check validity of instruction
 	if ((0 <= ifun) && (ifun <= 6))
@@ -287,8 +286,7 @@ void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
 	unsigned char ifun = c % 16;
 	unsigned char registers = fgetc(machineCode);
-	unsigned char firstRegister;
-	unsigned char secondRegister;
+	unsigned char firstRegister, secondRegister;
 
 	// check validity of instruction
 	if ((0 <= ifun) && (ifun <= 6))
@@ -363,16 +361,62 @@ void ret(unsigned char c, int *res, FILE *out)
 	fprintf(out, "ret\n");
 }
 
-void pushq(unsigned char c, int *res, FILE *out)
+void pushq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
-	*res = !(c % 16) ? 1 : -1;
-	fprintf(out, "pushq\n");
+	unsigned char ifun = c % 16;
+	unsigned char registers = fgetc(machineCode);
+	unsigned char firstRegister, secondRegister;
+
+	// check validity of instruction
+	if (!ifun)
+	{
+		firstRegister = registers >> 4;
+		secondRegister = registers % 16;
+
+		if ((0 <= firstRegister)
+			&& (firstRegister <= 0xE)
+			&& (secondRegister == 0xF)
+			&& (*res > 0))
+		{
+			*res = 1;
+		}
+		else *res = -1;
+	}
+	else *res = -1;
+
+	if (*res > 0)
+	{
+		fprintf(out, "pushq %s\n", reg(firstRegister));
+	}
 }
 
-void popq(unsigned char c, int *res, FILE *out)
+void popq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
-	*res = !(c % 16) ? 1 : -1;
-	fprintf(out, "popq\n");
+	unsigned char ifun = c % 16;
+	unsigned char registers = fgetc(machineCode);
+	unsigned char firstRegister, secondRegister;
+
+	// check validity of instruction
+	if (!ifun)
+	{
+		firstRegister = registers >> 4;
+		secondRegister = registers % 16;
+
+		if ((0 <= firstRegister)
+			&& (firstRegister <= 0xE)
+			&& (secondRegister == 0xF)
+			&& (*res > 0))
+		{
+			*res = 1;
+		}
+		else *res = -1;
+	}
+	else *res = -1;
+
+	if (*res > 0)
+	{
+		fprintf(out, "popq %s\n", reg(firstRegister));
+	}
 }
 
 const char* condition(unsigned char ifun)
