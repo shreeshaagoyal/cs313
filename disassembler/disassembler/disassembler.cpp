@@ -27,11 +27,11 @@ int printInstruction(FILE *machineCode, FILE *outputFile);
 void halt(unsigned char c, int *res, FILE *out);
 void nop(unsigned char c, int *res, FILE *out);
 void movq(unsigned char c, int *res, FILE *out, FILE *machineCode);
-void irmovq(unsigned char c, int *res, FILE *out);
-void rmmovq(unsigned char c, int *res, FILE *out);
-void mrmovq(unsigned char c, int *res, FILE *out);
+void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode);
+void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode);
+void mrmovq(unsigned char c, int *res, FILE *out, FILE *machineCode);
 void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode);
-void jXX(unsigned char c, int *es, FILE *out);
+void jXX(unsigned char c, int *es, FILE *out, FILE *machineCode);
 void call(unsigned char c, int *res, FILE *out, FILE *machineCode);
 void ret(unsigned char c, int *res, FILE *out);
 void pushq(unsigned char c, int *res, FILE *out, FILE *machineCode);
@@ -45,7 +45,7 @@ int main()
 	FILE *machineCode, *outputFile;
 
 	unsigned int argc = 3;
-	const char *InputFilename = "call.mem";
+	const char *InputFilename = "rmmovq.mem";
 	const char *OutFilename = "";
 	
 	unsigned long long startingOffset = 0;
@@ -109,6 +109,7 @@ void resetFilePosition(FILE *machineCode, unsigned long startingOffset)
 	fseek(machineCode, startingOffset, SEEK_SET);
 }
 
+// Testing purposes. Delete later
 void printHex(FILE *machineCode, FILE *outputFile)
 {
 	unsigned char c;
@@ -178,19 +179,19 @@ int printInstruction(FILE *machineCode, FILE *out)
 				movq(c, &res, out, machineCode);
 				break;
 			case 0x3:
-				irmovq(c, &res, out);
+				irmovq(c, &res, out, machineCode);
 				break;
 			case 0x4:
-				rmmovq(c, &res, out);
+				rmmovq(c, &res, out, machineCode);
 				break;
 			case 0x5:
-				mrmovq(c, &res, out);
+				mrmovq(c, &res, out, machineCode);
 				break;
 			case 0x6:
 				OPq(c, &res, out, machineCode);
 				break;
 			case 0x7:
-				jXX(c, &res, out);
+				jXX(c, &res, out, machineCode);
 				break;
 			case 0x8:
 				call(c, &res, out, machineCode);
@@ -227,8 +228,20 @@ void nop(unsigned char c, int *res, FILE *out)
 
 void movq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
+	long int startingAddress = ftell(machineCode);
+
 	unsigned char ifun = c % 0x10;
 	unsigned char registers = fgetc(machineCode);
+
+	if (feof(machineCode))
+	{
+		// Instruction is invalid
+		if (!(startingAddress % 8))
+		{
+			
+		}
+	}
+
 	unsigned char firstRegister, secondRegister;
 
 	// check validity of instruction
@@ -266,28 +279,76 @@ void movq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	}
 }
 
-void irmovq(unsigned char c, int *res, FILE *out)
+void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
+	// Check if instruction is invalid
+	for (int i = 0; i < 9; ++i)
+	{
+		fgetc(machineCode);
+		if (feof(machineCode))
+		{
+			// Instruction is invalid
+		}
+	}
+
+	fseek(machineCode, -9, SEEK_CUR);
+
 	*res = !(c % 0x10) ? 1 : -1;
 	fprintf(out, "irmovq\n");
 }
 
-void rmmovq(unsigned char c, int *res, FILE *out)
+void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
+	// Check if instruction is invalid
+	for (int i = 0; i < 9; ++i)
+	{
+		fgetc(machineCode);
+		if (feof(machineCode))
+		{
+			// Instruction is invalid
+		}
+	}
+
+	fseek(machineCode, -9, SEEK_CUR);
+
 	*res = !(c % 0x10) ? 1 : -1;
 	fprintf(out, "rmmovq\n");
 }
 
-void mrmovq(unsigned char c, int *res, FILE *out)
+void mrmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
+	// Check if instruction is invalid
+	for (int i = 0; i < 9; ++i)
+	{
+		fgetc(machineCode);
+		if (feof(machineCode))
+		{
+			// Instruction is invalid
+		}
+	}
+
+	fseek(machineCode, -9, SEEK_CUR);
+
 	*res = !(c % 0x10) ? 1 : -1;
 	fprintf(out, "mrmovq\n");
 }
 
 void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
+	long int startingAddress = ftell(machineCode);
+
 	unsigned char ifun = c % 0x10;
 	unsigned char registers = fgetc(machineCode);
+
+	if (feof(machineCode))
+	{
+		// Instruction is invalid
+		if (!(startingAddress % 8))
+		{
+
+		}
+	}
+
 	unsigned char firstRegister, secondRegister;
 
 	// check validity of instruction
@@ -342,19 +403,42 @@ void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	}
 }
 
-void jXX(unsigned char c, int *res, FILE *out)
+void jXX(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
+	// Check if instruction is invalid
+	for (int i = 0; i < 8; ++i)
+	{
+		fgetc(machineCode);
+		if (feof(machineCode))
+		{
+			// Instruction is invalid
+		}
+	}
+
+	fseek(machineCode, -8, SEEK_CUR);
 	unsigned char ifun = c % 0x10;
 	if ((0 <= ifun) && (ifun <= 6))
 	{
-		fprintf(out, "j%s", condition(ifun));
+		fprintf(out, "j%s 0x%llu\n", condition(ifun), destAddr(machineCode));
 	}
 }
 
 void call(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
+	// Check if instruction is invalid
+	for (int i = 0; i < 8; ++i)
+	{
+		fgetc(machineCode);
+		if (feof(machineCode))
+		{
+			// Instruction is invalid
+		}
+	}
+
+	fseek(machineCode, -8, SEEK_CUR);
+
 	*res = !(c % 0x10) ? 1 : -1;
-	fprintf(out, "call %llu\n", destAddr(machineCode));
+	fprintf(out, "call 0x%llu\n", destAddr(machineCode));
 }
 
 void ret(unsigned char c, int *res, FILE *out)
@@ -365,8 +449,20 @@ void ret(unsigned char c, int *res, FILE *out)
 
 void pushq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
+	long int startingAddress = ftell(machineCode);
+
 	unsigned char ifun = c % 0x10;
 	unsigned char registers = fgetc(machineCode);
+
+	if (feof(machineCode))
+	{
+		// Instruction is invalid
+		if (!(startingAddress % 8))
+		{
+
+		}
+	}
+
 	unsigned char firstRegister, secondRegister;
 
 	// check validity of instruction
@@ -394,8 +490,20 @@ void pushq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 
 void popq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
+	long int startingAddress = ftell(machineCode);
+
 	unsigned char ifun = c % 0x10;
 	unsigned char registers = fgetc(machineCode);
+
+	if (feof(machineCode))
+	{
+		// Instruction is invalid
+		if (!(startingAddress % 8))
+		{
+
+		}
+	}
+
 	unsigned char firstRegister, secondRegister;
 
 	// check validity of instruction
