@@ -27,11 +27,11 @@ int printInstruction(FILE *machineCode, FILE *outputFile);
 void halt(unsigned char c, int *res, FILE *out);
 void nop(unsigned char c, int *res, FILE *out);
 void movq(unsigned char c, int *res, FILE *out, FILE *machineCode);
-void irmovq(unsigned char c, int *res, FILE *out);
-void rmmovq(unsigned char c, int *res, FILE *out);
-void mrmovq(unsigned char c, int *res, FILE *out);
+void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode);
+void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode);
+void mrmovq(unsigned char c, int *res, FILE *out, FILE *machineCode);
 void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode);
-void jXX(unsigned char c, int *es, FILE *out);
+void jXX(unsigned char c, int *res, FILE *out, FILE *machineCode);
 void call(unsigned char c, int *res, FILE *out, FILE *machineCode);
 void ret(unsigned char c, int *res, FILE *out);
 void pushq(unsigned char c, int *res, FILE *out, FILE *machineCode);
@@ -45,7 +45,7 @@ int main()
 	FILE *machineCode, *outputFile;
 
 	unsigned int argc = 3;
-	const char *InputFilename = "call.mem";
+	const char *InputFilename = "test.mem";
 	const char *OutFilename = "";
 	
 	unsigned long long startingOffset = 0;
@@ -178,19 +178,19 @@ int printInstruction(FILE *machineCode, FILE *out)
 				movq(c, &res, out, machineCode);
 				break;
 			case 0x3:
-				irmovq(c, &res, out);
+				irmovq(c, &res, out, machineCode);
 				break;
 			case 0x4:
-				rmmovq(c, &res, out);
+				rmmovq(c, &res, out, machineCode);
 				break;
 			case 0x5:
-				mrmovq(c, &res, out);
+				mrmovq(c, &res, out, machineCode);
 				break;
 			case 0x6:
 				OPq(c, &res, out, machineCode);
 				break;
 			case 0x7:
-				jXX(c, &res, out);
+				jXX(c, &res, out, machineCode);
 				break;
 			case 0x8:
 				call(c, &res, out, machineCode);
@@ -266,22 +266,93 @@ void movq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	}
 }
 
-void irmovq(unsigned char c, int *res, FILE *out)
+void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
-	*res = !(c % 0x10) ? 1 : -1;
-	fprintf(out, "irmovq\n");
+	unsigned char ifun = c % 0x10;
+	unsigned char registers = fgetc(machineCode);
+	unsigned char firstRegister, secondRegister;
+
+	// check validity of instruction
+	if (!ifun)
+	{
+		firstRegister = registers >> 4;
+		secondRegister = registers % 0x10;
+
+		if ((0 <= secondRegister)
+			&& (secondRegister <= 0xE)
+			&& (firstRegister == 0xF)
+			&& (*res > 0))
+		{
+			*res = 1;
+		}
+		else *res = -1;
+	}
+	else *res = -1;
+
+	if (*res > 0)
+	{
+		fprintf(out, "irmovq $%llu, %s\n", destAddr(machineCode), reg(secondRegister));
+	}
 }
 
-void rmmovq(unsigned char c, int *res, FILE *out)
+void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
-	*res = !(c % 0x10) ? 1 : -1;
-	fprintf(out, "rmmovq\n");
+	unsigned char ifun = c % 0x10;
+	unsigned char registers = fgetc(machineCode);
+	unsigned char firstRegister, secondRegister;
+
+	// check validity of instruction
+	if (!ifun)
+	{
+		firstRegister = registers >> 4;
+		secondRegister = registers % 0x10;
+
+		if ((0 <= firstRegister)
+			&& (firstRegister <= 0xE)
+			&& (0 <= secondRegister)
+			&& (secondRegister <= 0xE)
+			&& (*res > 0))
+		{
+			*res = 1;
+		}
+		else *res = -1;
+	}
+	else *res = -1;
+
+	if (*res > 0)
+	{
+		fprintf(out, "rmmovq %s, %llu(%s)\n", reg(firstRegister), destAddr(machineCode), reg(secondRegister));
+	}
 }
 
-void mrmovq(unsigned char c, int *res, FILE *out)
+void mrmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
-	*res = !(c % 0x10) ? 1 : -1;
-	fprintf(out, "mrmovq\n");
+	unsigned char ifun = c % 0x10;
+	unsigned char registers = fgetc(machineCode);
+	unsigned char firstRegister, secondRegister;
+
+	// check validity of instruction
+	if (!ifun)
+	{
+		firstRegister = registers >> 4;
+		secondRegister = registers % 0x10;
+
+		if ((0 <= firstRegister)
+			&& (firstRegister <= 0xE)
+			&& (0 <= secondRegister)
+			&& (secondRegister <= 0xE)
+			&& (*res > 0))
+		{
+			*res = 1;
+		}
+		else *res = -1;
+	}
+	else *res = -1;
+
+	if (*res > 0)
+	{
+		fprintf(out, "mrmovq %llu(%s), %s\n", destAddr(machineCode), reg(secondRegister), reg(firstRegister));
+	}
 }
 
 void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode)
@@ -342,12 +413,19 @@ void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	}
 }
 
-void jXX(unsigned char c, int *res, FILE *out)
+void jXX(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
 	unsigned char ifun = c % 0x10;
 	if ((0 <= ifun) && (ifun <= 6))
 	{
-		fprintf(out, "j%s", condition(ifun));
+		*res = 1;
+	}
+	else *res = -1;
+
+	// print instruction
+	if (*res > 0)
+	{
+		fprintf(out, "j%s %llu\n", condition(ifun), destAddr(machineCode));
 	}
 }
 

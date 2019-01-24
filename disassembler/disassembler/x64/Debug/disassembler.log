@@ -1,0 +1,13 @@
+﻿  disassembler.cpp
+c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(85): warning C4244: 'argument': conversion from 'unsigned __int64' to 'unsigned long', possible loss of data
+c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(90): warning C4244: 'argument': conversion from 'unsigned __int64' to 'unsigned long', possible loss of data
+c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(95): warning C4244: 'argument': conversion from 'unsigned __int64' to 'unsigned long', possible loss of data
+c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(78): warning C4477: 'fprintf' : format string '%lx' requires an argument of type 'unsigned long', but variadic argument 2 has type 'unsigned __int64'
+  c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(78): note: consider using '%llx' in the format string
+  c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(78): note: consider using '%Ix' in the format string
+  c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(78): note: consider using '%I64x' in the format string
+c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(156): warning C4018: '<': signed/unsigned mismatch
+c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(568): warning C4244: '+=': conversion from 'double' to 'unsigned __int64', possible loss of data
+c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(524): warning C4715: 'condition': not all control paths return a value
+c:\users\shree\documents\cs313\disassembler\disassembler\disassembler.cpp(561): warning C4715: 'reg': not all control paths return a value
+  disassembler.vcxproj -> C:\Users\shree\Documents\cs313\disassembler\x64\Debug\disassembler.exe
