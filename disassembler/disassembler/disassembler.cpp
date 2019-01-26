@@ -26,7 +26,7 @@ void byteDirective(FILE *machineCode, FILE *outputFile);
 void quadDirective(FILE *machineCode, FILE *outputFile);
 void disassemble(FILE *machineCode, FILE *outputFile, unsigned long fileLength);
 int printInstruction(FILE *machineCode, FILE *outputFile);
-void halt(unsigned char c, int *res, FILE *out);
+void halt(unsigned char c, int *res, FILE *out, FILE *machineCode);
 void nop(unsigned char c, int *res, FILE *out);
 void movq(unsigned char c, int *res, FILE *out, FILE *machineCode);
 void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int startingAddress);
@@ -42,12 +42,14 @@ const char* condition(unsigned char ifun);
 const char* reg(unsigned char reg);
 unsigned long long destAddr(FILE *machineCode, int size);
 
+int consecutiveHalt = 0;
+
 int main()
 {
 	FILE *machineCode, *outputFile;
 
 	unsigned int argc = 3;
-	const char *InputFilename = "byte-byte.mem";
+	const char *InputFilename = "empty.mem";
 	const char *OutFilename = "";
 	
 	unsigned long long startingOffset = 0;
@@ -91,6 +93,18 @@ int main()
 
 	resetFilePosition(machineCode, startingOffset);
 
+	// Base case
+	if (fileLength == 1)
+	{
+		if (fgetc(machineCode) == 0x0)
+		{
+			fprintf(outputFile, ".byte 0x0\n");
+			fclose(machineCode);
+			return SUCCESS;
+		}
+		fseek(machineCode, -1, SEEK_CUR);
+	}
+
 	// Print pos directive
 	posDirective(machineCode, outputFile);
 
@@ -111,7 +125,7 @@ void resetFilePosition(FILE *machineCode, unsigned long startingOffset)
 	fseek(machineCode, startingOffset, SEEK_SET);
 }
 
-// Testing purposes. Delete later
+// TODO: Testing purposes. Delete later
 void printHex(FILE *machineCode, FILE *outputFile)
 {
 	unsigned char c;
@@ -138,19 +152,23 @@ void posDirective(FILE *machineCode, FILE *outputFile)
 
 		if (feof(machineCode))
 		{
+			long int currLine = ftell(machineCode);
+			fprintf(outputFile, ".pos 0x%lx\n", currLine - 0x1);
+			fprintf(outputFile, ".byte 0x0\n");
 			break;
 		}
 
-		if (c != 0)
+		if (c)
 		{
 			long int currLine = ftell(machineCode);
 			if (currLine != 0x1)
 			{
-				fprintf(outputFile, ".pos ");
-				fprintf(outputFile, "0x%ld\n", currLine - 0x1);
+				fprintf(outputFile, ".pos 0x%lx\n", currLine - 0x1);
 			}
 			break;
 		}
+
+		consecutiveHalt = 1;
 	}
 }
 
@@ -180,51 +198,57 @@ int printInstruction(FILE *machineCode, FILE *out)
 
 	if (!feof(machineCode))
 	{
-		switch (c >> 4)
+		if ((c >> 4) == 0x0)
 		{
-			case 0x0:
-				halt(c, &res, out);
-				break;
-			case 0x1:
-				nop(c, &res, out);
-				break;
-			case 0x2:
-				movq(c, &res, out, machineCode);
-				break;
-			case 0x3:
-				irmovq(c, &res, out, machineCode, startingAddress);
-				break;
-			case 0x4:
-				rmmovq(c, &res, out, machineCode, startingAddress);
-				break;
-			case 0x5:
-				mrmovq(c, &res, out, machineCode, startingAddress);
-				break;
-			case 0x6:
-				OPq(c, &res, out, machineCode);
-				break;
-			case 0x7:
-				jXX(c, &res, out, machineCode, startingAddress);
-				break;
-			case 0x8:
-				call(c, &res, out, machineCode, startingAddress);
-				break;
-			case 0x9:
-				ret(c, &res, out);
-				break;
-			case 0xA:
-				pushq(c, &res, out, machineCode);
-				break;
-			case 0xB:
-				popq(c, &res, out, machineCode);
-				break;
-			default:
-				res = -1;
+			halt(c, &res, out, machineCode);
+		}
+		else {
+			consecutiveHalt = 0;
+			switch (c >> 4)
+			{
+				case 0x1:
+					nop(c, &res, out);
+					break;
+				case 0x2:
+					movq(c, &res, out, machineCode);
+					break;
+				case 0x3:
+					irmovq(c, &res, out, machineCode, startingAddress);
+					break;
+				case 0x4:
+					rmmovq(c, &res, out, machineCode, startingAddress);
+					break;
+				case 0x5:
+					mrmovq(c, &res, out, machineCode, startingAddress);
+					break;
+				case 0x6:
+					OPq(c, &res, out, machineCode);
+					break;
+				case 0x7:
+					jXX(c, &res, out, machineCode, startingAddress);
+					break;
+				case 0x8:
+					call(c, &res, out, machineCode, startingAddress);
+					break;
+				case 0x9:
+					ret(c, &res, out);
+					break;
+				case 0xA:
+					pushq(c, &res, out, machineCode);
+					break;
+				case 0xB:
+					popq(c, &res, out, machineCode);
+					break;
+				default:
+					res = -1;
+			}
 		}
 	}
 
 	if (res < 0)
 	{
+		consecutiveHalt = 0;
+
 		fseek(machineCode, -1, SEEK_CUR);
 
 		// Check for quad directive
@@ -256,10 +280,16 @@ int printInstruction(FILE *machineCode, FILE *out)
 }
 
 // INSTRUCTION FUNCTIONS. MAKE THESE PRIVATE
-void halt(unsigned char c, int *res, FILE *out)
+void halt(unsigned char c, int *res, FILE *out, FILE *machineCode)
 {
 	*res = !(c % 0x10) ? 1 : -1;
-	fprintf(out, "halt\n");
+	if (!consecutiveHalt)
+	{
+		fprintf(out, "halt\n");
+		consecutiveHalt = 1;
+		fprintf(out, "\n");
+		posDirective(machineCode, out);
+	}
 }
 
 void nop(unsigned char c, int *res, FILE *out)
