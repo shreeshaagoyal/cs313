@@ -49,7 +49,7 @@ int main()
 	FILE *machineCode, *outputFile;
 
 	unsigned int argc = 3;
-	const char *InputFilename = "empty.mem";
+	const char *InputFilename = "sort_64.mem";
 	const char *OutFilename = "";
 	
 	unsigned long long startingOffset = 0;
@@ -88,7 +88,7 @@ int main()
 	
 	resetFilePosition(machineCode, startingOffset);
 
-	// Disassembler
+	// Print machine code instructions in hex
 	printHex(machineCode, outputFile);
 
 	resetFilePosition(machineCode, startingOffset);
@@ -114,6 +114,7 @@ int main()
 	disassemble(machineCode, outputFile, fileLength);
 
 	fclose(machineCode);
+	fclose(outputFile);
 
 	system("pause");
 
