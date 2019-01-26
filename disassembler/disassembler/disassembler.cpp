@@ -22,17 +22,19 @@
 void resetFilePosition(FILE *machineCode, unsigned long startingOffset);
 void printHex(FILE *machineCode, FILE *outputFile);
 void posDirective(FILE *machineCode, FILE *outputFile);
+void byteDirective(FILE *machineCode, FILE *outputFile);
+void quadDirective(FILE *machineCode, FILE *outputFile);
 void disassemble(FILE *machineCode, FILE *outputFile, unsigned long fileLength);
 int printInstruction(FILE *machineCode, FILE *outputFile);
 void halt(unsigned char c, int *res, FILE *out);
 void nop(unsigned char c, int *res, FILE *out);
 void movq(unsigned char c, int *res, FILE *out, FILE *machineCode);
-void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode);
-void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode);
-void mrmovq(unsigned char c, int *res, FILE *out, FILE *machineCode);
+void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int startingAddress);
+void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int startingAddress);
+void mrmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int startingAddress);
 void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode);
-void jXX(unsigned char c, int *es, FILE *out, FILE *machineCode);
-void call(unsigned char c, int *res, FILE *out, FILE *machineCode);
+void jXX(unsigned char c, int *es, FILE *out, FILE *machineCode, long int startingAddress);
+void call(unsigned char c, int *res, FILE *out, FILE *machineCode, long int startingAddress);
 void ret(unsigned char c, int *res, FILE *out);
 void pushq(unsigned char c, int *res, FILE *out, FILE *machineCode);
 void popq(unsigned char c, int *res, FILE *out, FILE *machineCode);
@@ -45,7 +47,7 @@ int main()
 	FILE *machineCode, *outputFile;
 
 	unsigned int argc = 3;
-	const char *InputFilename = "mrmovq.mem";
+	const char *InputFilename = "call-quad.mem";
 	const char *OutFilename = "";
 	
 	unsigned long long startingOffset = 0;
@@ -152,6 +154,18 @@ void posDirective(FILE *machineCode, FILE *outputFile)
 	}
 }
 
+void byteDirective(FILE *machineCode, FILE *outputFile)
+{
+	// TODO
+	fprintf(outputFile, ".byte \n");
+}
+
+void quadDirective(FILE *machineCode, FILE *outputFile)
+{
+	// TODO
+	fprintf(outputFile, ".quad %llu\n", destAddr(machineCode));
+}
+
 void disassemble(FILE *machineCode, FILE *outputFile, unsigned long fileLength)
 {
 	for (int i = 0; i < fileLength; ++i)
@@ -163,6 +177,7 @@ void disassemble(FILE *machineCode, FILE *outputFile, unsigned long fileLength)
 int printInstruction(FILE *machineCode, FILE *out)
 {
 	int res = 1;
+	long int startingAddress = ftell(machineCode);
 	unsigned char c = fgetc(machineCode);
 
 	if (!feof(machineCode))
@@ -179,22 +194,22 @@ int printInstruction(FILE *machineCode, FILE *out)
 				movq(c, &res, out, machineCode);
 				break;
 			case 0x3:
-				irmovq(c, &res, out, machineCode);
+				irmovq(c, &res, out, machineCode, startingAddress);
 				break;
 			case 0x4:
-				rmmovq(c, &res, out, machineCode);
+				rmmovq(c, &res, out, machineCode, startingAddress);
 				break;
 			case 0x5:
-				mrmovq(c, &res, out, machineCode);
+				mrmovq(c, &res, out, machineCode, startingAddress);
 				break;
 			case 0x6:
 				OPq(c, &res, out, machineCode);
 				break;
 			case 0x7:
-				jXX(c, &res, out, machineCode);
+				jXX(c, &res, out, machineCode, startingAddress);
 				break;
 			case 0x8:
-				call(c, &res, out, machineCode);
+				call(c, &res, out, machineCode, startingAddress);
 				break;
 			case 0x9:
 				ret(c, &res, out);
@@ -236,10 +251,7 @@ void movq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	if (feof(machineCode))
 	{
 		// Instruction is invalid
-		if (!(startingAddress % 8))
-		{
-			
-		}
+		byteDirective(machineCode, out);
 	}
 
 	unsigned char firstRegister, secondRegister;
@@ -279,7 +291,7 @@ void movq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	}
 }
 
-void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
+void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int startingAddress)
 {
 	// Check if instruction is invalid
 	for (int i = 0; i < 9; ++i)
@@ -288,6 +300,19 @@ void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 		if (feof(machineCode))
 		{
 			// Instruction is invalid
+			// There are 8 bytes available AND the starting position
+			// of would-be instruction is a multiple of 8
+			if ((i >= 7) && (!(startingAddress % 8)))
+			{
+				// move file position back
+				quadDirective(machineCode, out);	
+				return;
+			}
+			else {
+				byteDirective(machineCode, out);
+				// move file position back
+				return;
+			}
 		}
 	}
 
@@ -320,15 +345,29 @@ void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	}
 }
 
-void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
+void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int startingAddress)
 {
+
 	// Check if instruction is invalid
 	for (int i = 0; i < 9; ++i)
 	{
-		fgetc(machineCode);
+		 fgetc(machineCode);
 		if (feof(machineCode))
 		{
 			// Instruction is invalid
+			// There are 8 bytes available AND the starting position
+			// of would-be instruction is a multiple of 8
+			if ((i >= 7) && (!(startingAddress % 8)))
+			{
+				// move file position back
+				quadDirective(machineCode, out);
+				return;
+			}
+			else {
+				byteDirective(machineCode, out);
+				// move file position back
+				return;
+			}
 		}
 	}
 
@@ -362,8 +401,9 @@ void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	}
 }
 
-void mrmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
+void mrmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int startingAddress)
 {
+
 	// Check if instruction is invalid
 	for (int i = 0; i < 9; ++i)
 	{
@@ -371,6 +411,19 @@ void mrmovq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 		if (feof(machineCode))
 		{
 			// Instruction is invalid
+			// There are 8 bytes available AND the starting position
+			// of would-be instruction is a multiple of 8
+			if ((i >= 7) && (!(startingAddress % 8)))
+			{
+				// move file position back
+				quadDirective(machineCode, out);
+				return;
+			}
+			else {
+				byteDirective(machineCode, out);
+				// move file position back
+				return;
+			}
 		}
 	}
 
@@ -414,10 +467,7 @@ void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	if (feof(machineCode))
 	{
 		// Instruction is invalid
-		if (!(startingAddress % 8))
-		{
-
-		}
+		byteDirective(machineCode, out);
 	}
 
 	unsigned char firstRegister, secondRegister;
@@ -474,7 +524,7 @@ void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	}
 }
 
-void jXX(unsigned char c, int *res, FILE *out, FILE *machineCode)
+void jXX(unsigned char c, int *res, FILE *out, FILE *machineCode, long int startingAddress)
 {
 	// Check if instruction is invalid
 	for (int i = 0; i < 8; ++i)
@@ -483,6 +533,18 @@ void jXX(unsigned char c, int *res, FILE *out, FILE *machineCode)
 		if (feof(machineCode))
 		{
 			// Instruction is invalid
+			// There are 8 bytes available AND the starting position
+			// of would-be instruction is a multiple of 8
+			if ((i == 7) && (!(startingAddress % 8)))
+			{
+				fseek(machineCode, -8, SEEK_CUR);
+				quadDirective(machineCode, out);
+				return;
+			}
+			else {
+				byteDirective(machineCode, out);
+				return;
+			}
 		}
 	}
 
@@ -501,7 +563,7 @@ void jXX(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	}
 }
 
-void call(unsigned char c, int *res, FILE *out, FILE *machineCode)
+void call(unsigned char c, int *res, FILE *out, FILE *machineCode, long int startingAddress)
 {
 	// Check if instruction is invalid
 	for (int i = 0; i < 8; ++i)
@@ -510,6 +572,18 @@ void call(unsigned char c, int *res, FILE *out, FILE *machineCode)
 		if (feof(machineCode))
 		{
 			// Instruction is invalid
+			// There are 8 bytes available AND the starting position
+			// of would-be instruction is a multiple of 8
+			if ((i == 7) && (!(startingAddress % 8)))
+			{
+				fseek(machineCode, -8, SEEK_CUR);
+				quadDirective(machineCode, out);
+				return;
+			}
+			else {
+				byteDirective(machineCode, out);
+				return;
+			}
 		}
 	}
 
@@ -538,10 +612,7 @@ void pushq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	if (feof(machineCode))
 	{
 		// Instruction is invalid
-		if (!(startingAddress % 8))
-		{
-
-		}
+		byteDirective(machineCode, out);
 	}
 
 	unsigned char firstRegister, secondRegister;
@@ -579,10 +650,7 @@ void popq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	if (feof(machineCode))
 	{
 		// Instruction is invalid
-		if (!(startingAddress % 8))
-		{
-
-		}
+		byteDirective(machineCode, out);
 	}
 
 	unsigned char firstRegister, secondRegister;
