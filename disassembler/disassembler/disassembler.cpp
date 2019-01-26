@@ -47,7 +47,7 @@ int main()
 	FILE *machineCode, *outputFile;
 
 	unsigned int argc = 3;
-	const char *InputFilename = "random-quad.mem";
+	const char *InputFilename = "byte-byte.mem";
 	const char *OutFilename = "";
 	
 	unsigned long long startingOffset = 0;
@@ -156,13 +156,11 @@ void posDirective(FILE *machineCode, FILE *outputFile)
 
 void byteDirective(FILE *machineCode, FILE *outputFile)
 {
-	// TODO
 	fprintf(outputFile, ".byte %llu\n", destAddr(machineCode, 1));
 }
 
 void quadDirective(FILE *machineCode, FILE *outputFile)
 {
-	// TODO
 	fprintf(outputFile, ".quad %llu\n", destAddr(machineCode, 8));
 }
 
@@ -222,6 +220,35 @@ int printInstruction(FILE *machineCode, FILE *out)
 				break;
 			default:
 				res = -1;
+		}
+	}
+
+	if (res < 0)
+	{
+		fseek(machineCode, -1, SEEK_CUR);
+
+		// Check for quad directive
+		for (int i = 0; i < 8; ++i)
+		{
+			fgetc(machineCode);
+			if (feof(machineCode))
+			{
+				fseek(machineCode, -i, SEEK_CUR);
+				byteDirective(machineCode, out);
+				return res;
+			}
+		}
+
+		// There are 8 bytes available AND the starting position
+		// of would-be instruction is a multiple of 8
+		if (!(startingAddress % 8))
+		{
+			fseek(machineCode, -8, SEEK_CUR);
+			quadDirective(machineCode, out);
+		}
+		else {
+			fseek(machineCode, -8, SEEK_CUR);
+			byteDirective(machineCode, out);
 		}
 	}
 
