@@ -40,14 +40,14 @@ void pushq(unsigned char c, int *res, FILE *out, FILE *machineCode);
 void popq(unsigned char c, int *res, FILE *out, FILE *machineCode);
 const char* condition(unsigned char ifun);
 const char* reg(unsigned char reg);
-unsigned long long destAddr(FILE *machineCode);
+unsigned long long destAddr(FILE *machineCode, int size);
 
 int main()
 {
 	FILE *machineCode, *outputFile;
 
 	unsigned int argc = 3;
-	const char *InputFilename = "call-quad.mem";
+	const char *InputFilename = "random-quad.mem";
 	const char *OutFilename = "";
 	
 	unsigned long long startingOffset = 0;
@@ -157,13 +157,13 @@ void posDirective(FILE *machineCode, FILE *outputFile)
 void byteDirective(FILE *machineCode, FILE *outputFile)
 {
 	// TODO
-	fprintf(outputFile, ".byte \n");
+	fprintf(outputFile, ".byte %llu\n", destAddr(machineCode, 1));
 }
 
 void quadDirective(FILE *machineCode, FILE *outputFile)
 {
 	// TODO
-	fprintf(outputFile, ".quad %llu\n", destAddr(machineCode));
+	fprintf(outputFile, ".quad %llu\n", destAddr(machineCode, 8));
 }
 
 void disassemble(FILE *machineCode, FILE *outputFile, unsigned long fileLength)
@@ -251,6 +251,7 @@ void movq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	if (feof(machineCode))
 	{
 		// Instruction is invalid
+		fseek(machineCode, -1, SEEK_CUR);
 		byteDirective(machineCode, out);
 	}
 
@@ -304,13 +305,13 @@ void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int st
 			// of would-be instruction is a multiple of 8
 			if ((i >= 7) && (!(startingAddress % 8)))
 			{
-				// move file position back
+				fseek(machineCode, -(i+1), SEEK_CUR);
 				quadDirective(machineCode, out);	
 				return;
 			}
 			else {
+				fseek(machineCode, -(i + 1), SEEK_CUR);
 				byteDirective(machineCode, out);
-				// move file position back
 				return;
 			}
 		}
@@ -341,7 +342,7 @@ void irmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int st
 
 	if (*res > 0)
 	{
-		fprintf(out, "irmovq $%llu, %s\n", destAddr(machineCode), reg(secondRegister));
+		fprintf(out, "irmovq $%llu, %s\n", destAddr(machineCode, 8), reg(secondRegister));
 	}
 }
 
@@ -351,7 +352,7 @@ void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int st
 	// Check if instruction is invalid
 	for (int i = 0; i < 9; ++i)
 	{
-		 fgetc(machineCode);
+		fgetc(machineCode);
 		if (feof(machineCode))
 		{
 			// Instruction is invalid
@@ -359,13 +360,13 @@ void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int st
 			// of would-be instruction is a multiple of 8
 			if ((i >= 7) && (!(startingAddress % 8)))
 			{
-				// move file position back
-				quadDirective(machineCode, out);
+				fseek(machineCode, -(i+1), SEEK_CUR);
+				quadDirective(machineCode, out);	
 				return;
 			}
 			else {
+				fseek(machineCode, -(i + 1), SEEK_CUR);
 				byteDirective(machineCode, out);
-				// move file position back
 				return;
 			}
 		}
@@ -397,7 +398,7 @@ void rmmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int st
 
 	if (*res > 0)
 	{
-		fprintf(out, "rmmovq %s, %llu(%s)\n", reg(firstRegister), destAddr(machineCode), reg(secondRegister));
+		fprintf(out, "rmmovq %s, %llu(%s)\n", reg(firstRegister), destAddr(machineCode, 8), reg(secondRegister));
 	}
 }
 
@@ -415,13 +416,13 @@ void mrmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int st
 			// of would-be instruction is a multiple of 8
 			if ((i >= 7) && (!(startingAddress % 8)))
 			{
-				// move file position back
+				fseek(machineCode, -(i + 1), SEEK_CUR);
 				quadDirective(machineCode, out);
 				return;
 			}
 			else {
+				fseek(machineCode, -(i + 1), SEEK_CUR);
 				byteDirective(machineCode, out);
-				// move file position back
 				return;
 			}
 		}
@@ -453,7 +454,7 @@ void mrmovq(unsigned char c, int *res, FILE *out, FILE *machineCode, long int st
 
 	if (*res > 0)
 	{
-		fprintf(out, "mrmovq %llu(%s), %s\n", destAddr(machineCode), reg(secondRegister), reg(firstRegister));
+		fprintf(out, "mrmovq %llu(%s), %s\n", destAddr(machineCode, 8), reg(secondRegister), reg(firstRegister));
 	}
 }
 
@@ -467,6 +468,7 @@ void OPq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	if (feof(machineCode))
 	{
 		// Instruction is invalid
+		fseek(machineCode, -1, SEEK_CUR);
 		byteDirective(machineCode, out);
 	}
 
@@ -542,6 +544,7 @@ void jXX(unsigned char c, int *res, FILE *out, FILE *machineCode, long int start
 				return;
 			}
 			else {
+				fseek(machineCode, -(i+1), SEEK_CUR);
 				byteDirective(machineCode, out);
 				return;
 			}
@@ -559,7 +562,7 @@ void jXX(unsigned char c, int *res, FILE *out, FILE *machineCode, long int start
 	// print instruction
 	if (*res > 0)
 	{
-		fprintf(out, "j%s %llu\n", condition(ifun), destAddr(machineCode));
+		fprintf(out, "j%s %llu\n", condition(ifun), destAddr(machineCode, 8));
 	}
 }
 
@@ -581,6 +584,7 @@ void call(unsigned char c, int *res, FILE *out, FILE *machineCode, long int star
 				return;
 			}
 			else {
+				fseek(machineCode, -(i+1), SEEK_CUR);
 				byteDirective(machineCode, out);
 				return;
 			}
@@ -592,7 +596,7 @@ void call(unsigned char c, int *res, FILE *out, FILE *machineCode, long int star
 	*res = !(c % 0x10) ? 1 : -1;
 	if (*res > 0)
 	{
-		fprintf(out, "call %llu\n", destAddr(machineCode));
+		fprintf(out, "call %llu\n", destAddr(machineCode, 8));
 	}
 }
 
@@ -612,6 +616,7 @@ void pushq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	if (feof(machineCode))
 	{
 		// Instruction is invalid
+		fseek(machineCode, -1, SEEK_CUR);
 		byteDirective(machineCode, out);
 	}
 
@@ -650,6 +655,7 @@ void popq(unsigned char c, int *res, FILE *out, FILE *machineCode)
 	if (feof(machineCode))
 	{
 		// Instruction is invalid
+		fseek(machineCode, -1, SEEK_CUR);
 		byteDirective(machineCode, out);
 	}
 
@@ -736,10 +742,10 @@ const char* reg(unsigned char reg)
 	}
 }
 
-unsigned long long destAddr(FILE *machineCode)
+unsigned long long destAddr(FILE *machineCode, int size)
 {
 	unsigned long long destAddr = 0;
-	for (int i = 0; i < 8; ++i)
+	for (int i = 0; i < size; ++i)
 	{
 		destAddr += fgetc(machineCode) * (pow(0x10, 2*i));
 	}
