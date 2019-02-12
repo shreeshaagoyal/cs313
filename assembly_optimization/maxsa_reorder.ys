@@ -1,0 +1,156 @@
+.pos 0x100
+main:
+    irmovq $stackEnd, %rsp              # %rsp = stack ptr
+    irmovq $arraySize, %rsi             # %rsi = &arraySize
+    irmovq $array, %rdi                 # %rdi = &array       ("array" in maxsa.c)
+    irmovq $resultStart, %rdx           # %rdx = &resultStart ("sa_start" in maxsa.c)
+    irmovq $resultEnd, %rcx             # %rcx = &resultEnd   ("sa_end" in maxsa.c)
+    mrmovq (%rsi), %rsi                 # %rsi = arraySize    ("size" in maxsa.c)
+    call   maxSubArray                  # call maxsa(array, size, sa_start, sa_end)
+    irmovq $resultSum, %r8              # %r8 = &resultSum    ("bestsum" in maxsa.c)
+    rmmovq %rax, (%r8)                  # bestsum = result of maxsa(array, size, sa_start, sa_end)
+    halt                                # stop
+
+.pos 0x1000
+maxSubArray:                            # everything below will be in terms of var names in maxsa.c
+    pushq  %r12                         # push %r12 to stack
+    irmovq $1, %r9                      # %r9 = 1 
+    pushq  %r13                         # push %r13 to stack
+    subq   %rsi, %r9                    # %r9 = 1 - size (set condition codes)
+    pushq  %r14                         # push %r14 to stack
+    jne    L1                           # if (size != 1) goto L1. else continue
+    rmmovq %rdi, (%rcx)                 # *sa_end = array
+    rmmovq %rdi, (%rdx)                 # *sa_start = array
+    mrmovq (%rdi), %r13                 # %r13 (return value) = *array
+    jmp    L9                           # goto L9
+L1:
+    irmovq $2, %r10                     # %r10 = 2
+    pushq  %rbx                         # push %rbx to stack (store callee save registers)
+    rrmovq %rsi, %rbx                   # %rbx = size
+    irmovq $8, %r8                      # %r8 = 8
+    rrmovq %rsi, %r9                    # %r9 = size
+    irmovq $8, %rbp                     # %rbp = 8
+    divq   %r10, %rbx                   # %rbx = half = size / 2
+    mulq   %r8, %r9                     # %r9 = size * 8
+    addq   %rdi, %r9                    # %r9 = array + (size * 8)      ("mid = array + size" in maxsa.c)
+    mulq   %rbx, %rbp                   # %rbp = half * 8
+    xorq   %rax, %rax                   # %rax = sum = 0
+    subq   %r8, %r9                     # %r9 = end = array + (size * 8) - 8 ("end = array + size - 1") in maxsa.c
+    addq   %rdi, %rbp                   # %rbp = mid = array + half
+    rrmovq %rbp, %r11                   # %r11 = ptr <- mid
+    irmovq $0x8000000000000000, %r10    # %r10 = leftsum = 0x80
+    subq   %r8, %r11                    # ptr = mid - 1
+    
+L2:                                     # first for loop
+    rrmovq %r11, %r12                   # %r12 = ptr
+    subq   %rdi, %r12                   # %r12 = ptr - array (set condition codes)
+    jl     L4                           # if (ptr < array) goto L4 (break). else continue
+    mrmovq (%r11), %r12                 # %r12 = *ptr
+    addq   %r12, %rax                   # %rax = sum += *ptr
+    rrmovq %rax, %r12                   # %r12 = sum
+    subq   %r10, %r12                   # %r12 = sum - leftsum (set condition codes)
+    jle    L3                           # if (sum <= leftsum) goto L3 (skip). else continue
+    rmmovq %r11, (%rdx)                 # *sa_start = ptr
+    rrmovq %rax, %r10                   # leftsum = sum
+L3:
+    subq   %r8, %r11                    # ptr--
+    jmp    L2                           # goto L2 (beginning of first for loop)
+L4:
+    irmovq $0x8000000000000000, %r13    # %r13 = rightsum = 0x80
+    rrmovq %rbp, %r11                   # %r11 = ptr <- mid
+    xorq   %rax, %rax                   # %rax = sum = 0
+L5:                                     # second for loop
+    rrmovq %r11, %r12                   # %r12 = ptr
+    subq   %r9, %r12                    # %r12 = ptr - end (set condition codes)
+    jg     L7                           # if (ptr > end) goto L7 (break). else continue
+    mrmovq (%r11), %r12                 # %r12 = *ptr
+    addq   %r12, %rax                   # %rax = sum += *ptr
+    rrmovq %rax, %r12                   # %r12 = sum
+    subq   %r13, %r12                   # %r12 = sum - rightsum (set condition codes)
+    jle    L6                           # if (sum <= rightsum) goto L6 (skip). else continue
+    rmmovq %r11, (%rcx)                 # *sa_end = ptr
+    rrmovq %rax, %r13                   # rightsum = sum    
+L6:
+    addq   %r8, %r11                    # ptr++
+    jmp    L5                           # goto L5 (beginning of second for loop)
+L7:
+    rrmovq %rsi, %r9                    # %r9 = size
+    pushq  %rdx                         # push (sa_start = sub_start) to stack
+    rrmovq %rcx, %r14                   # %r14 = sa_end
+    addq   %r10, %r13                   # %r13 = bestsum = leftsum + rightsum
+    subq   %rbx, %r9                    # %r9 = size - half
+    rrmovq %rdx, %r12                   # %r12 = sa_start
+    rrmovq %rsp, %rdx                   # %rdx = sa_start = &sub_start
+    pushq  %rcx                         # push (sa_end = sub_end) to stack
+    rrmovq %rbx, %rsi                   # %rsi = half
+    rrmovq %r9, %rbx                    # %rbx = size - half
+    rrmovq %rsp, %rcx                   # %rcx = sa_end = &sub_end
+    call   maxSubArray                  # first recursive call - call maxsa(array, half, &sub_start, &sub_end)
+    popq   %rcx                         # pop sub_end from stack
+    rrmovq %rax, %r9                    # %r9 = sum = return value of maxsa(array, half, &sub_start, &sub_end)
+    subq   %r13, %r9                    # %r9 = sum - bestsum (set condition codes)
+    popq   %rdx                         # pop sub_start from stack
+    jle    L8                           # if (sum <= bestsum) goto L8 (skip). else continue
+    rrmovq %rax, %r13                   # bestsum = sum
+    rmmovq %rdx, (%r12)                 # *sa_start = sub_start
+    rmmovq %rcx, (%r14)                 # *sa_end = sub_end
+L8:
+    pushq  %rdx                         # push (sa_start = sub_start) to stack
+    rrmovq %rbp, %rdi                   # %di = array <- mid
+    rrmovq %rbx, %rsi                   # %rsi = size <- size - half
+    rrmovq %rsp, %rdx                   # %rdx = sa_start = &sub_start
+    pushq  %rcx                         # push (sa_end = sub_end) to stack
+    rrmovq %rsp, %rcx                   # %rcx = sa_end = &sub_end
+    call   maxSubArray                  # second recursive call - call maxsa(mid, size - half, &sub_start, &sub_end)
+    popq   %rcx                         # pop sub_end from stack
+    rrmovq %rax, %r9                    # %r9 = sum = return value of maxsa(mid, size - half, &sub_start, &sub_end)
+    popq   %rdx                         # pop sub_start from stack
+    subq   %r13, %r9                    # %r9 = sum - bestsum (set condition codes)
+
+    popq   %rbx                         # pop original value of %rbx from stack
+    jle    L9                           # if (sum <= bestsum) goto L9 (skip). else continue
+    rrmovq %rax, %r13                   # bestsum = sum
+    rmmovq %rdx, (%r12)                 # *sa_start = sub_start
+    rmmovq %rcx, (%r14)                 # *sa_end = sub_end
+L9:
+    popq   %r14                         # pop original value of %r14 from stack (restore callee save registers)
+    rrmovq %r13, %rax                   # %rax = %r13. Return %r13
+    popq   %r13                         # pop original value of %r13 from stack
+    popq   %r12                         # pop original value of %r12 from stack
+    ret                                 # return %rax
+    
+    
+.pos 0x2000
+array:
+    .quad 13
+    .quad -3
+    .quad -25
+    .quad -20
+    .quad -3
+    .quad -16
+    .quad -23
+    .quad 18
+    .quad 20
+    .quad -7
+    .quad 12
+    .quad -5
+    .quad -22
+    .quad 15
+    .quad -4
+    .quad 7
+arraySize:
+    .quad 16
+
+.pos 0x2500
+resultStart:
+    .quad 0
+resultEnd:
+    .quad 0
+resultSum:
+    .quad 0
+
+.pos 0x4000
+stack:
+    .quad 0, 1000
+stackEnd:
+    .quad 0
