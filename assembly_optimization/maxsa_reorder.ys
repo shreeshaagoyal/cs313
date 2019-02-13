@@ -13,22 +13,24 @@ main:
 
 .pos 0x1000
 maxSubArray:                            # everything below will be in terms of var names in maxsa.c
-    pushq  %r12                         # push %r12 to stack
+    
     irmovq $1, %r9                      # %r9 = 1 
     pushq  %r13                         # push %r13 to stack
     subq   %rsi, %r9                    # %r9 = 1 - size (set condition codes)
-    pushq  %r14                         # push %r14 to stack
+    
     jne    L1                           # if (size != 1) goto L1. else continue
     rmmovq %rdi, (%rcx)                 # *sa_end = array
     rmmovq %rdi, (%rdx)                 # *sa_start = array
     mrmovq (%rdi), %r13                 # %r13 (return value) = *array
     jmp    L9                           # goto L9
 L1:
+    pushq  %r12                         # push %r12 to stack
     irmovq $2, %r10                     # %r10 = 2
     pushq  %rbx                         # push %rbx to stack (store callee save registers)
     rrmovq %rsi, %rbx                   # %rbx = size
     irmovq $8, %r8                      # %r8 = 8
     rrmovq %rsi, %r9                    # %r9 = size
+    pushq  %r14                         # push %r14 to stack
     irmovq $8, %rbp                     # %rbp = 8
     divq   %r10, %rbx                   # %rbx = half = size / 2
     mulq   %r8, %r9                     # %r9 = size * 8
@@ -107,16 +109,18 @@ L8:
     popq   %rdx                         # pop sub_start from stack
     subq   %r13, %r9                    # %r9 = sum - bestsum (set condition codes)
 
+    popq   %r14                         # pop original value of %r14 from stack (restore callee save registers)
     popq   %rbx                         # pop original value of %rbx from stack
+    popq   %r12                         # pop original value of %r12 from stack
     jle    L9                           # if (sum <= bestsum) goto L9 (skip). else continue
     rrmovq %rax, %r13                   # bestsum = sum
     rmmovq %rdx, (%r12)                 # *sa_start = sub_start
     rmmovq %rcx, (%r14)                 # *sa_end = sub_end
 L9:
-    popq   %r14                         # pop original value of %r14 from stack (restore callee save registers)
+    
     rrmovq %r13, %rax                   # %rax = %r13. Return %r13
     popq   %r13                         # pop original value of %r13 from stack
-    popq   %r12                         # pop original value of %r12 from stack
+    
     ret                                 # return %rax
     
     
