@@ -23,10 +23,10 @@ file.
 
 
 STUDENT  1
-Name :
-St. No:
-Unix Id :
-Email:
+Name : Shreeshaa Goyal
+St. No: 31674161
+Unix Id : b4q1b
+Email: b4q1b@ugrad.cs.ubc.ca
 
 
 STUDENT  2
